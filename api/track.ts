@@ -14,4 +14,4 @@ app.get('/track/:trackCode', trackController.track);
 
 app.listen(port, () => console.log(`App listening at http://localhost:${port}`));
 
-export default app;
+module.exports = trackController.track;
