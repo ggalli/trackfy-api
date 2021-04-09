@@ -4,7 +4,8 @@
   "description": "A simple robot that track your packages on brazilian post site.",
   "main": "index.js",
   "scripts": {
-    "start": "tsnd --transpile-only --ignore-watch node_modules --respawn src/index.ts"
+    "start": "tsnd --transpile-only --ignore-watch node_modules --respawn src/index.ts",
+    "build": "tsc --build"
   },
   "keywords": [],
   "author": "",
