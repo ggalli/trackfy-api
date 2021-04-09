@@ -13,3 +13,5 @@ app.use(express.json());
 app.get('/track/:trackCode', trackController.track);
 
 app.listen(port, () => console.log(`App listening at http://localhost:${port}`));
+
+export default app;
