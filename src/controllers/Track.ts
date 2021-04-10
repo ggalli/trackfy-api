@@ -6,12 +6,13 @@ export default class TrackController {
 		const { trackCode } = req.params;
 
 		const result = await trackObject(trackCode);
+		const { ok, data, message } = result;
 
-		if (result.ok) {
-			return res.status(200).json(result.data);
+		if (ok && data && data.length > 0) {
+			return res.status(200).json(data);
 		}
-		else if (result.message) {
-			return res.status(400).json({ error: result.message });
+		else if (message) {
+			return res.status(400).json({ error: message });
 		}
 		else {
 			return res.status(404).end();
