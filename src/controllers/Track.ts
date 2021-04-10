@@ -10,11 +10,11 @@ export default class TrackController {
 		if (result.ok) {
 			return res.status(200).json(result.data);
 		}
-		else if (!result.data) {
-			return res.status(404);
+		else if (result.message) {
+			return res.status(400).json({ error: result.message });
 		}
 		else {
-			return res.status(400).json({ error: result.message });
+			return res.status(404).end();
 		}
 	}
 }
