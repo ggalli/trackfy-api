@@ -5,115 +5,108 @@ import { isValidTrackCode } from '../utils/validations';
 // import fs from 'fs';
 
 interface Event {
-	date: string;
-	hour: string;
-	description: string
-	origin: object;
-	destiny: object | null;
+  date: string;
+  hour: string;
+  local: string;
+  status: string;
+  description: string;
 }
 
 async function trackObject(trackCode: string) {
-	if (!isValidTrackCode(trackCode)) return { message: "Track code is invalid." }
+  if (!isValidTrackCode(trackCode)) return { message: "Track code is invalid." }
 
-	try {
-		const result = await getHtmlPage(trackCode);
-		const html = iconv.decode(Buffer.from(result.data), "iso-8859-1");
-		const extractedData = extractHTML(html);
-		const parsedData = parseToJson(extractedData);
-		return {
-			ok: true,
-			data: parsedData
-		}
-	}
-	catch (error) {
-		return { message: "Failed to track object." }
-	}
-	// MOCK
-	// const data = fs.readFileSync('./rastreio.html', 'utf8');
+  try {
+    const html = await getHtmlPage(trackCode);
+    const extractedData = extractHTML(html);
+    const parsedData = parseToJson(extractedData);
+
+    return {
+      ok: true,
+      data: parsedData
+    }
+  }
+  catch (error) {
+    return { message: "Failed to track object." }
+  }
+  // MOCK
+  // const data = fs.readFileSync('./rastreio.html', 'utf8');
 }
 
 
 async function getHtmlPage(trackCode: string) {
-	const trackUrl = 'https://www2.correios.com.br/sistemas/rastreamento/resultado.cfm';
+  const trackUrl = 'https://www2.correios.com.br/sistemas/rastreamento/resultado.cfm';
 
-	const params = new URLSearchParams();
-	params.append('objetos', trackCode);
+  const params = new URLSearchParams();
+  params.append('objetos', trackCode);
 
-	return await axios({
-		method: 'POST',
-		url: trackUrl,
-		data: params,
-		headers: {
-			"Content-Type": "application/x-www-form-urlencoded",
-		},
-		responseType: 'arraybuffer'
-	});
+  const response = await axios({
+    method: 'POST',
+    url: trackUrl,
+    data: params,
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    responseType: 'arraybuffer'
+  });
+
+  return iconv.decode(Buffer.from(response.data), "iso-8859-1");
 }
 
 function extractHTML(html: string) {
-	const $ = cheerio.load(html);
+  const $ = cheerio.load(html);
 
-	const tables = $(".listEvent").toArray(); //get .listEvent elements in DOM
+  const tables = $(".listEvent").toArray(); //get .listEvent elements in DOM
 
-	const logs = tables.map(table => {
-		const data = new Array();
-		const dtEvents = $(table)
-			.find('.sroDtEvent')
-			.text()
-			.replace(/ \n/g, '|') //replace all whitespaces followed by line breaks to pipes
-			.replace(/[\n\t]/g, '') //remove all remaining line breaks and tabs
+  const logs = tables.map(table => {
+    const data = new Array();
 
-		data.push(dtEvents);
+    const dtEvents = $(table) //get and format .sroDtEvent element in DOM
+      .find('.sroDtEvent')
+      .text()
+      .replace(/[\n\r\t]/g, '')
+      .split(/\s\s+/g)
 
-		const lbEvents = $(table).find('.sroLbEvent'); //get .sroLbEvent element in DOM
+    data.push(dtEvents);
 
-		const title = $(lbEvents).find('strong').text(); //get event description
-		data.push(title);
+    const lbEvents = $(table).find('.sroLbEvent'); //get .sroLbEvent element in DOM
 
-		const label = $(lbEvents)
-			.text()
-			.replace(/[\t\n]/g, "") //remove all tabs and line breaks
-			.split('em')
+    const title = $(lbEvents).find('strong').text(); //get event title
+    data.push(title);
 
-		const destiny = label[label.length - 1]; //get last index of array
+    $(lbEvents).find('strong').remove(); //remove strong element from sroLbEvent
 
-		if (destiny.includes('/')) {
-			data.push(destiny.trim());
-		}
+    const description = $(lbEvents) //get and format event description
+      .text()
+      .replace(/[\n\r\t]/g, '')
+      .trim()
 
-		return data;
-	})
+    data.push(description)
 
-	return logs;
+    return data;
+  })
+
+  return logs;
 }
 
 function parseToJson(logs: any) {
-	const events: Event[] = logs.map((log: any) => {
-		const dtevents = log[0].split('|');
-		const origin = dtevents[2].split('/');
-		const destiny = log[2] ? log[2].split('/') : null;
+  const events = logs.map((log: any) => {
+    const dateHour = log[0][0].split(' ');
+    const date = dateHour[0];
+    const hour = dateHour[1];
+    const local = log[0][1];
+    const status = log[1];
+    const description = log[2] ? log[2].split('.')[0] : null;
 
-		const destinyObj = destiny ?
-			{
-				city: destiny[0].trim(),
-				state: destiny[1].trim()
-			} : null;
+    return {
+      date,
+      hour,
+      status,
+      local,
+      description
+    };
+  });
 
-		const event: Event = {
-			date: dtevents[0],
-			hour: dtevents[1].trim(),
-			description: log[1],
-			origin: {
-				city: origin[0].trim(),
-				state: origin[1].trim()
-			},
-			destiny: destinyObj
-		};
-
-		return event;
-	});
-
-	return events;
+  return events;
 }
 
 export { trackObject };
